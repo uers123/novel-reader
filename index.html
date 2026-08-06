@@ -22,6 +22,14 @@
     <span class="tab" data-tab="reading">正在阅读</span>
     <span class="tab" data-tab="done">已完成</span>
   </div>
+  <div class="demo-banner" id="demo-banner" hidden>
+    <span>⚠️ 后端连接失败，当前显示内置演示数据</span>
+    <button id="btn-demo-retry">重试</button>
+  </div>
+  <div class="bookshelf-search" id="bookshelf-search" hidden>
+    <input type="text" id="search-input" class="search-input" placeholder="搜索书名或作者…" autocomplete="off">
+    <button class="icon-btn search-clear" id="btn-search-clear" aria-label="清除搜索">×</button>
+  </div>
   <div class="bookshelf-grid" id="bookshelf-grid"></div>
   <div class="bookshelf-actions">
     <a class="web-link-btn" href="https://www.xbiquge.la" target="_blank" title="打开小说网站 - 点击选择来源">源</a>
@@ -89,7 +97,7 @@
         <input type="range" class="setting-slider" id="fontsize-slider" min="14" max="34" value="20">
         <span class="setting-bubble" id="fontsize-display">20</span>
         <span class="setting-label">A+</span>
-        <span class="setting-link">系统字体 ›</span>
+        <span class="setting-link setting-link-dead">系统字体 ›</span>
       </div>
       <div class="setting-row setting-row-wrap">
         <div class="color-palette" id="color-palette">

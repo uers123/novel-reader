@@ -1,6 +1,12 @@
 const App = (() => {
   let _novels = [];
   window._currentNovel = null;
+  let _searchQuery = '';
+  let _activeTab = 'all';
+  let _demoMode = false;
+  let _crawlPollTimer = null;
+  let _crawlPollNovelId = null;
+  let _toastTimer = null;
   const CHUNK_THRESHOLD = 2 * 1024 * 1024;
   const CHUNK_SIZE = 2 * 1024 * 1024;
 
@@ -10,11 +16,21 @@ const App = (() => {
     Reader.init();
     await AudioPlayer.init();
     _bindTabs();
+    _bindSearchEvents();
     _bindImportEvents();
     _bindMenuEvents();
     _bindTranslateEvents();
-    await _loadNovels();
-    if (_novels.length === 0) _loadLocalBooks();
+    _bindDemoBanner();
+    const backendOk = await _loadNovels();
+    if (!backendOk) {
+      // 后端不可达：进入演示模式，加载内置演示书并显示提示条
+      _demoMode = true;
+      _loadLocalBooks();
+      _showDemoBanner();
+    } else if (!_novels.length) {
+      // 后端可达但书架为空：沿用原有降级逻辑加载演示书（不视为演示模式）
+      _loadLocalBooks();
+    }
     renderBookshelf();
   }
 
@@ -24,10 +40,11 @@ const App = (() => {
       if (response.ok) {
         const data = await response.json();
         _novels = data.novels || [];
-        return;
+        return true;
       }
     } catch (_e) {}
     _novels = [];
+    return false;
   }
 
   function _loadLocalBooks() {
@@ -38,21 +55,97 @@ const App = (() => {
       author: book.author,
       coverColor: book.coverColor,
       progress: book.progress || 0,
+      // 演示书的 progress 字段本身就是百分比，直接透传给 progress_percent
+      progress_percent: Number(book.progress) || 0,
       description: book.description,
       chapterCount: (book.chapters || []).length,
       local: true,
     }));
   }
 
+  // ── B1：进度百分比（优先 progress_percent；旧后端只有章节索引 progress） ──
+  function _progressPercent(book) {
+    const direct = book && book.progress_percent;
+    if (direct !== undefined && direct !== null && direct !== '') {
+      const value = Number(direct);
+      if (!Number.isNaN(value)) return Math.min(100, Math.max(0, value));
+    }
+    const chapterIndex = Number(book && book.progress) || 0;
+    const chapterCount = Number(book && book.chapterCount) || 0;
+    if (chapterCount <= 1) return chapterIndex > 0 ? 100 : 0;
+    return Math.min(100, Math.max(0, Math.round((chapterIndex / (chapterCount - 1)) * 100)));
+  }
+
+  function _isBookDone(book) {
+    return _progressPercent(book) >= 99.5;
+  }
+
+  // ── 轻量 toast 提示 ──
+  function _showToast(message) {
+    let toast = document.getElementById('app-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'app-toast';
+      toast.className = 'toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  // ── 演示模式 ──
+  function _isDemoBook(book) {
+    return !!(book && book.local);
+  }
+
+  function _isDemoCurrentBook() {
+    return _isDemoBook(window._currentNovel);
+  }
+
+  function _showDemoBanner() {
+    const banner = document.getElementById('demo-banner');
+    if (banner) banner.hidden = false;
+  }
+
+  function _hideDemoBanner() {
+    const banner = document.getElementById('demo-banner');
+    if (banner) banner.hidden = true;
+  }
+
   function renderBookshelf(filter) {
+    if (filter) _activeTab = filter;
     const grid = document.getElementById('bookshelf-grid');
     grid.innerHTML = '';
     let books = _novels.slice();
-    if (filter === 'reading') books = books.filter(book => book.progress > 0 && book.progress < 100);
-    if (filter === 'done') books = books.filter(book => book.progress >= 100);
+
+    if (_activeTab === 'reading') {
+      books = books.filter(book => _progressPercent(book) > 0 && !_isBookDone(book));
+    }
+    if (_activeTab === 'done') {
+      books = books.filter(_isBookDone);
+    }
+
+    // U1：按书名/作者关键字过滤
+    const query = _searchQuery.trim().toLowerCase();
+    if (query) {
+      books = books.filter(book =>
+        (book.title || '').toLowerCase().includes(query) ||
+        (book.author || '').toLowerCase().includes(query)
+      );
+    }
 
     if (!books.length) {
-      grid.innerHTML = `
+      grid.innerHTML = query
+        ? `
+        <div class="empty-bookshelf">
+          <div class="empty-icon">搜</div>
+          <p>未找到相关书籍</p>
+          <span>试试其他书名或作者关键字</span>
+        </div>
+      `
+        : `
         <div class="empty-bookshelf">
           <div class="empty-icon">书</div>
           <p>书架空空如也</p>
@@ -65,11 +158,13 @@ const App = (() => {
     books.forEach(book => {
       const card = document.createElement('button');
       card.className = 'book-card';
+      const percent = _progressPercent(book);
       card.innerHTML = `
         <div class="book-cover" style="background:${book.coverColor || '#5A7A9A'}">${_escapeHtml((book.title || '?')[0])}</div>
+        ${_isDemoBook(book) ? '<span class="demo-badge">演示</span>' : ''}
         <div class="book-title">${_escapeHtml(book.title || '未命名')}</div>
         <div class="book-author">${_escapeHtml(book.author || '')}</div>
-        <div class="book-progress"><div class="book-progress-bar" style="width:${book.progress || 0}%"></div></div>
+        <div class="book-progress"><div class="book-progress-bar" style="width:${percent}%"></div></div>
       `;
       card.addEventListener('click', () => _openBook(book));
       grid.appendChild(card);
@@ -77,6 +172,7 @@ const App = (() => {
   }
 
   async function _openBook(book) {
+    _stopCrawlPolling(); // 切换书籍时清理爬取轮询定时器
     window._currentNovel = book;
     if (book.local) {
       const localBook = typeof BOOKS_DATA !== 'undefined' ? BOOKS_DATA.find(item => item.id === book.id) : null;
@@ -109,6 +205,117 @@ const App = (() => {
     });
   }
 
+  // ── U1：书架搜索（按钮展开/收起 + 输入即时过滤 + 回车/ESC） ──
+  function _bindSearchEvents() {
+    const btnSearch = document.getElementById('btn-search');
+    const searchBar = document.getElementById('bookshelf-search');
+    const searchInput = document.getElementById('search-input');
+    const clearBtn = document.getElementById('btn-search-clear');
+    if (!btnSearch || !searchBar || !searchInput) return;
+
+    const clearSearch = () => {
+      _searchQuery = '';
+      searchInput.value = '';
+      searchBar.hidden = true;
+      renderBookshelf();
+    };
+
+    btnSearch.addEventListener('click', () => {
+      const willShow = searchBar.hidden;
+      searchBar.hidden = !willShow;
+      if (willShow) searchInput.focus();
+    });
+    searchInput.addEventListener('input', () => {
+      _searchQuery = searchInput.value;
+      renderBookshelf();
+    });
+    searchInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') renderBookshelf();
+      if (event.key === 'Escape') clearSearch();
+    });
+    if (clearBtn) clearBtn.addEventListener('click', clearSearch);
+  }
+
+  // ── U3：演示模式提示条上的「重试」按钮 ──
+  function _bindDemoBanner() {
+    const retry = document.getElementById('btn-demo-retry');
+    if (!retry) return;
+    retry.addEventListener('click', async () => {
+      retry.disabled = true;
+      const ok = await _loadNovels();
+      if (ok) {
+        _demoMode = false;
+        _hideDemoBanner();
+        renderBookshelf();
+        _showToast('已连接后端，恢复在线模式');
+      } else {
+        _showToast('重试失败：后端仍不可用');
+      }
+      retry.disabled = false;
+    });
+  }
+
+  // ── crawl-status 轮询：每 3 秒查询后台缓存进度 ──
+  function _stopCrawlPolling() {
+    if (_crawlPollTimer) {
+      clearInterval(_crawlPollTimer);
+      _crawlPollTimer = null;
+    }
+    _crawlPollNovelId = null;
+  }
+
+  function _startCrawlPolling(novelId, initialStatus) {
+    _stopCrawlPolling();
+    _crawlPollNovelId = novelId;
+
+    const updateText = (cached, total) => {
+      const text = document.getElementById('crawl-progress-text');
+      if (text) text.textContent = `后台缓存章节中 ${cached}/${total}`;
+    };
+
+    // 导入接口已带回 crawlStatus，先展示并判断是否还需要轮询
+    if (initialStatus) {
+      const cached = Number(initialStatus.cached) || 0;
+      const total = Number(initialStatus.total) || 0;
+      updateText(cached, total);
+      if (initialStatus.inProgress === false || (total > 0 && cached >= total)) {
+        const text = document.getElementById('crawl-progress-text');
+        if (text) text.textContent = `章节缓存完成 ${cached}/${total}`;
+        _stopCrawlPolling();
+        const progress = document.getElementById('crawl-progress');
+        if (progress) progress.style.display = 'none';
+        return;
+      }
+    }
+
+    _crawlPollTimer = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/novels/${novelId}/crawl-status`);
+        if (!response.ok) {
+          _stopCrawlPolling();
+          return;
+        }
+        const status = await response.json();
+        const cached = Number(status.cached) || 0;
+        const total = Number(status.total) || 0;
+        updateText(cached, total);
+        const done = status.inProgress === false || (total > 0 && cached >= total);
+        if (!done) return;
+        _stopCrawlPolling();
+        const text = document.getElementById('crawl-progress-text');
+        if (text) text.textContent = `章节缓存完成 ${cached}/${total}`;
+        const progress = document.getElementById('crawl-progress');
+        if (progress) progress.style.display = 'none';
+        await _loadNovels();
+        renderBookshelf();
+        const modal = document.getElementById('import-modal');
+        if (modal && !modal.classList.contains('active')) _showToast('章节缓存完成');
+      } catch (_e) {
+        // 网络抖动：保留定时器继续轮询
+      }
+    }, 3000);
+  }
+
   function _bindImportEvents() {
     const importModal = document.getElementById('import-modal');
     const uploadZone = document.getElementById('upload-zone');
@@ -120,9 +327,15 @@ const App = (() => {
     const crawlProgressText = document.getElementById('crawl-progress-text');
 
     document.getElementById('btn-import').addEventListener('click', () => importModal.classList.add('active'));
-    document.getElementById('import-close').addEventListener('click', () => importModal.classList.remove('active'));
+    document.getElementById('import-close').addEventListener('click', () => {
+      _stopCrawlPolling(); // 关闭面板时清理轮询定时器
+      importModal.classList.remove('active');
+    });
     importModal.addEventListener('click', event => {
-      if (event.target === importModal) importModal.classList.remove('active');
+      if (event.target === importModal) {
+        _stopCrawlPolling();
+        importModal.classList.remove('active');
+      }
     });
 
     uploadZone.addEventListener('click', () => fileInput.click());
@@ -151,6 +364,7 @@ const App = (() => {
         return;
       }
 
+      _stopCrawlPolling();
       crawlProgress.style.display = 'block';
       crawlProgressText.textContent = '正在导入目录并预抓100章...';
       crawlSubmit.disabled = true;
@@ -175,11 +389,17 @@ const App = (() => {
         await _loadNovels();
         renderBookshelf();
         setTimeout(() => importModal.classList.remove('active'), 500);
+        // crawl-status 轮询：导入返回书籍 id 后每 3 秒查询缓存进度
+        const novelId = data.novel && data.novel.id;
+        if (novelId) _startCrawlPolling(novelId, data.crawlStatus);
       } catch (error) {
         alert(error.message || '爬取失败');
       } finally {
         crawlSubmit.disabled = false;
-        setTimeout(() => { crawlProgress.style.display = 'none'; }, 1200);
+        // 轮询进行中时保留进度展示，轮询结束由 _startCrawlPolling 自行隐藏
+        if (!_crawlPollNovelId) {
+          setTimeout(() => { crawlProgress.style.display = 'none'; }, 1200);
+        }
       }
     });
   }
@@ -281,6 +501,17 @@ const App = (() => {
 
   function _bindMenuEvents() {
     const menuModal = document.getElementById('menu-modal');
+
+    // 书架页 header 的 ⋯ 按钮：阅读器里已有 btn-more 菜单入口，
+    // 书架页仅在已打开书籍时复用菜单，否则提示先打开一本书
+    document.getElementById('btn-menu').addEventListener('click', () => {
+      if (Reader.getCurrentBookId()) {
+        menuModal.classList.add('active');
+      } else {
+        _showToast('请先打开一本书');
+      }
+    });
+
     menuModal.addEventListener('click', event => {
       if (event.target === menuModal) menuModal.classList.remove('active');
     });
@@ -294,11 +525,19 @@ const App = (() => {
 
     document.getElementById('menu-export').addEventListener('click', () => {
       menuModal.classList.remove('active');
+      if (_isDemoCurrentBook()) {
+        _showToast('演示书籍不支持该操作');
+        return;
+      }
       _exportCurrentChapter();
     });
 
     document.getElementById('menu-edit').addEventListener('click', () => {
       menuModal.classList.remove('active');
+      if (_isDemoCurrentBook()) {
+        _showToast('演示书籍不支持该操作');
+        return;
+      }
       _openEditModal();
     });
 
@@ -309,6 +548,10 @@ const App = (() => {
 
     document.getElementById('menu-delete').addEventListener('click', async () => {
       menuModal.classList.remove('active');
+      if (_isDemoCurrentBook()) {
+        _showToast('演示书籍不支持该操作');
+        return;
+      }
       const bookId = Reader.getCurrentBookId();
       if (!bookId || !confirm('确定删除这本小说吗？')) return;
       const response = await fetch(`/api/novels/${bookId}`, { method: 'DELETE' });
@@ -398,6 +641,10 @@ const App = (() => {
   function _openEditModal() {
     const book = window._currentNovel;
     if (!book) return;
+    if (_isDemoBook(book)) {
+      _showToast('演示书籍不支持该操作');
+      return;
+    }
     document.getElementById('edit-title').value = book.title || '';
     document.getElementById('edit-author').value = book.author || '';
     // Highlight current cover color
@@ -411,6 +658,10 @@ const App = (() => {
   async function _doEditBook() {
     const book = window._currentNovel;
     if (!book) return;
+    if (_isDemoBook(book)) {
+      _showToast('演示书籍不支持该操作');
+      return;
+    }
     const title = document.getElementById('edit-title').value.trim();
     const author = document.getElementById('edit-author').value.trim();
     const activeColor = document.querySelector('#edit-colors .color-swatch.active');

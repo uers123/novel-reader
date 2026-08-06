@@ -179,10 +179,22 @@ class TestSettingsAndTTS(BackendTestCase):
         payload = response.get_json()
         self.assertTrue(payload["mock"])
         self.assertIn("/api/tts/audio/", payload["audioUrl"])
+        audio_response = self.client.get(payload["audioUrl"])
+        try:
+            self.assertEqual(audio_response.status_code, 200)
+        finally:
+            audio_response.close()
 
         response = self.client.get("/api/tts/emotions")
         self.assertEqual(response.status_code, 200)
         self.assertIn("auto", [item["id"] for item in response.get_json()["emotions"]])
+
+    def test_tts_gpu_settings_are_clamped(self):
+        response = self.client.put("/api/tts/gpu-settings", json={"maxBatchSize": 0, "maxVRAM": 999})
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()["gpu"]
+        self.assertEqual(payload["maxBatchSize"], 1)
+        self.assertEqual(payload["maxVRAM"], 100)
 
 
 class TestTranslation(BackendTestCase):

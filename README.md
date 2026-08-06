@@ -4,6 +4,10 @@
 
 ## 运行
 
+双击根目录的 `start_novel_reader.bat` 可一键启动。脚本会自动检查基础依赖、启动后端并打开浏览器。
+
+也可以手动运行：
+
 ```powershell
 python -m pip install -r backend/requirements.txt
 python backend/app.py
@@ -23,7 +27,9 @@ python -m unittest discover -s backend -p "test*.py" -v
 ## 目录
 
 - `index.html`、`css/`、`js/`：前端页面与交互。
-- `backend/app.py`：Flask 服务、小说存储、翻译和 TTS 接口。
+- `backend/app.py`：Flask 路由和应用装配。
+- `backend/services/`：小说存储、翻译和 TTS 服务。
+- `backend/storage_utils.py`、`backend/text_utils.py`：JSON 持久化和文本切分工具。
 - `ASD/novel_crawler.py`：多来源小说爬虫。
 - `backend/test_delivery.py`：交付回归测试。
 
