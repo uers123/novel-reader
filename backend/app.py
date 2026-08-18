@@ -438,7 +438,9 @@ def api_get_settings():
 
 @app.route("/api/settings", methods=["POST"])
 def api_save_settings():
-    settings = {**DEFAULT_SETTINGS, **(request.get_json(silent=True) or {})}
+    # 部分合并：仅覆盖 payload 中的字段，保留已持久化但未提交的键（默认值在 GET 时合并）
+    payload = request.get_json(silent=True) or {}
+    settings = {**read_json(SETTINGS_FILE, {}), **payload}
     write_json(SETTINGS_FILE, settings)
     return jsonify({"success": True, "settings": settings})
 

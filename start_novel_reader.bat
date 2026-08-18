@@ -12,8 +12,6 @@ if "%PORT%"=="" set "PORT=5000"
 
 if not "%NOVEL_READER_PYTHON%"=="" (
   set "PYTHON_EXE=%NOVEL_READER_PYTHON%"
-) else if exist "D:\py3.13.3\python.exe" (
-  set "PYTHON_EXE=D:\py3.13.3\python.exe"
 ) else (
   set "PYTHON_EXE=python"
 )

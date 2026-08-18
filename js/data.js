@@ -3,20 +3,6 @@
  * AI 有声小说播放器
  */
 
-// ============ 音色数据（图4） ============
-const VOICE_DATA = [
-  { id: 'voice-1', name: '软萌萝莉', color: '#E8D5F5', downloaded: true },
-  { id: 'voice-2', name: '萌娃童声', color: '#D5E8F5', downloaded: true },
-  { id: 'voice-3', name: '深沉大叔', color: '#E0E0E0', downloaded: true },
-  { id: 'voice-4', name: '温柔少年', color: '#D5F0E8', downloaded: true },
-  { id: 'voice-5', name: '清朗男声', color: '#F0E8D5', downloaded: false },
-  { id: 'voice-6', name: '成熟男声', color: '#E8E0D5', downloaded: false },
-  { id: 'voice-7', name: '温柔女声', color: '#F5D5E8', downloaded: true },
-  { id: 'voice-8', name: '清冷女声', color: '#D5E8F0', downloaded: false },
-  { id: 'voice-9', name: '标准男声', color: '#E8E8E8', downloaded: false },
-  { id: 'voice-10', name: '东北女声', color: '#F0E8D5', downloaded: true }
-];
-
 // ============ 书籍数据 ============
 const BOOKS_DATA = [
   {
@@ -184,26 +170,6 @@ const Storage = {
   saveProgress(bookId, progress) {
     const key = `novel_progress_${bookId}`;
     localStorage.setItem(key, JSON.stringify(progress));
-  },
-
-  // 获取设置
-  getSettings() {
-    const data = localStorage.getItem('novel_settings');
-    if (data) return JSON.parse(data);
-    return {
-      theme: 'day',       // day / night / eye / parchment
-      fontSize: 16,        // 12-24
-      lineHeight: 1.8,     // 1.4-2.4
-      bgColor: '#F9F7F4',  // 背景色
-      pageEffect: 'updown', // push / cover / simulation / updown
-      brightness: 100,      // 0-100
-      emotion: 'auto'
-    };
-  },
-
-  // 保存设置
-  saveSettings(settings) {
-    localStorage.setItem('novel_settings', JSON.stringify(settings));
   },
 
   // 获取书架信息

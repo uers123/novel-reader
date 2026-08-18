@@ -155,10 +155,6 @@ class TTSService:
         ) + glob.glob(
             sys.prefix + "/lib/python*/site-packages/ChatTTS"
         )
-        # Also check other Python installations
-        for _base in ["D:/py3.13.3", "D:/anaconda", "C:/Users/39528/AppData/Local/Programs/Python/Python312"]:
-            candidates += glob.glob(_base + "/Lib/site-packages/ChatTTS")
-            candidates += glob.glob(_base + "/lib/python*/site-packages/ChatTTS")
         for _p in candidates:
             _sp = _p.replace("/ChatTTS", "").replace("\\ChatTTS", "")
             if _sp not in sys.path:

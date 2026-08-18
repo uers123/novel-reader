@@ -1,5 +1,7 @@
 # AI Audiobook Novel Reader (Novel Reader)
 
+> **Merge note**: This project is the merged result of two sibling codebases, `novel` and `novel-reader`, built on the `novel-reader` baseline (a strict feature superset of `novel`); the `novel` repository has been archived. Shared defects were fixed during the merge: `POST /api/settings` now uses **partial-merge** semantics (only submitted fields are overwritten — unsubmitted fields are no longer reset to defaults), hardcoded machine paths were removed, and dead code / duplicate CSS were cleaned up. Where API or behavior differs from older versions, this README is authoritative.
+
 A local-first web novel reader that combines **reading and listening** in one app: TXT/URL import → bookshelf management → chapter reading → ChatTTS local text-to-speech with sentence-by-sentence playback, plus real-time chapter translation. All data is stored locally as JSON files — no database required. When the backend is unreachable, the app gracefully falls back to built-in demo books with a one-click retry.
 
 ## Features

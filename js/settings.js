@@ -119,9 +119,8 @@ const Settings = (() => {
     if (key === 'theme') {
       document.documentElement.setAttribute('data-theme', _settings.theme);
       els.nightBtn.innerHTML = _settings.theme === 'night' ? '☀<span>日间</span>' : '☾<span>夜间</span>';
-      // Clear inline bgColor when using theme colors (night/eye)
+      // 主题优先渲染：夜间/护眼时清除内联背景色让主题变量生效；保留 bgColor 键，避免切换主题时丢失自定义背景色
       if (_settings.theme === 'night' || _settings.theme === 'eye') {
-        delete _settings.bgColor;
         els.readerContent.style.backgroundColor = '';
       }
     }

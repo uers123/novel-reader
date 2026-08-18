@@ -33,5 +33,5 @@ Thumbs.db
 # 鏃ュ織
 *.log
 
-# 小说备份/回收目录
+# 灏忚澶囦唤/鍥炴敹鐩綍
 backend/novels_trash*/
