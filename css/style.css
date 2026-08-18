@@ -207,7 +207,6 @@ input[type="range"]::-webkit-slider-thumb {
 }
 .settings-header h3 { font-size: 16px; font-weight: 600; }
 
-.settings-body { padding: 16px 20px; }
 .setting-row {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 0; border-bottom: 1px solid var(--divider-color);
@@ -218,9 +217,7 @@ input[type="range"]::-webkit-slider-thumb {
 .setting-link { font-size: 12px; color: var(--text-link); cursor: pointer; white-space: nowrap; }
 .setting-link:active { color: var(--accent); }
 
-.color-palette { display: flex; gap: 6px; flex: 1; }
 .page-effect-options { display: flex; gap: 4px; flex: 1; }
-.settings-foot-link { font-size: 13px; color: var(--text-link); cursor: pointer; }
 .settings-foot-link:active { color: var(--accent); }
 .settings-divider { color: var(--divider-color); }
 
@@ -434,6 +431,7 @@ input[type="range"]::-webkit-slider-thumb {
   box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.12);
 }
 .settings-body {
+  padding: 16px 20px;
   max-width: 760px;
   margin: 0 auto;
 }
@@ -451,6 +449,7 @@ input[type="range"]::-webkit-slider-thumb {
   flex: 0 0 auto;
 }
 .color-palette {
+  flex: 1;
   display: grid;
   grid-template-columns: repeat(6, minmax(46px, 1fr));
   gap: 14px;
@@ -516,6 +515,9 @@ input[type="range"]::-webkit-slider-thumb {
   justify-content: space-around;
 }
 .settings-foot-link {
+  font-size: 13px;
+  color: var(--text-link);
+  cursor: pointer;
   border: 0;
   background: transparent;
   padding: 10px;
